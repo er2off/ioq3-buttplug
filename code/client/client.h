@@ -34,6 +34,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "cl_http.h"
 #endif /* USE_HTTP */
 
+#ifdef USE_BUTTPLUG
+#include "../buttplug/bp_public.h"
+#endif
+
 #ifdef USE_VOIP
 #include <opus.h>
 #endif

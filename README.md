@@ -1,3 +1,52 @@
+# ioquake3 Buttplug mod
+
+This repo adds [buttplug](https://buttplug.io/) support into ioquake3.
+
+Despite of the disclaimer on the official site that you need
+to have physical device, I don't have any. Tests were made by noku, not by me.
+
+Plugin does vibration on speedups (bhop, etc.), damage and attacks.
+Everything is configurable by using cvars:
+
+| Cvar                | Description                                    |
+|:--------------------|:-----------------------------------------------|
+| bp\_address         | WebSocket address of Intiface, could be wss:// |
+| bp\_port            | WebSocket Intiface port                        |
+| bp\_treshold        | Speed treshold when vibration starts           |
+| bp\_damage          | Enable vibration on any kind of damage         |
+| bp\_fight\_strength | Strength of weapon attack                      |
+
+You can see all of them in a console, every cvar is saved.
+
+## Build
+
+> [!WARNING]
+> I don't care about any problems with build as this repo was made just for fun.
+
+To build plugin, you need to also have nlohmann-json and C++ compiler (who don't have it?),
+to build everything else, consult ioquake3 page.
+
+So, I guess you're smart enough, just type
+```sh
+make USE_BUTTPLUG=1
+```
+
+## Usage
+
+If you did everything right, ioquake3 should appear on your screen
+and `bp_*` stuff should be in your console.
+
+Device can be detected automatically. If you're unsure, run `bp_status`.
+
+If it wasn't detected, you can run `bp_scan [wait]`
+(add wait if scanning needs some time like your device is connected using Bluetooth)
+
+If you still can't get device, run Intiface, or if it's already started, reconnect device.
+
+You're ready! You can modify cvars and source code if you need non-standard behavior.
+
+# ioquake3
+
 ![Build](https://github.com/ioquake/ioq3/workflows/Build/badge.svg)
 
                    ,---------------------------------------.

@@ -234,8 +234,18 @@ void IN_VoipRecordUp(void)
 }
 #endif
 
-void IN_Button0Down(void) {IN_KeyDown(&in_buttons[0]);}
-void IN_Button0Up(void) {IN_KeyUp(&in_buttons[0]);}
+void IN_Button0Down(void) {
+	IN_KeyDown(&in_buttons[0]);
+#ifdef USE_BUTTPLUG
+	CL_AddVibration(BP_CH_ATTACK, Cvar_VariableValue("bp_fight_strength"), 800, qtrue);
+#endif
+}
+void IN_Button0Up(void) {
+	IN_KeyUp(&in_buttons[0]);
+#ifdef USE_BUTTPLUG
+	CL_StopVibrationCycle(BP_CH_ATTACK);
+#endif
+}
 void IN_Button1Down(void) {IN_KeyDown(&in_buttons[1]);}
 void IN_Button1Up(void) {IN_KeyUp(&in_buttons[1]);}
 void IN_Button2Down(void) {IN_KeyDown(&in_buttons[2]);}

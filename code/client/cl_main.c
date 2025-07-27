@@ -137,6 +137,12 @@ refexport_t	re;
 static void	*rendererLib = NULL;
 #endif
 
+#ifdef USE_BUTTPLUG
+bpexport_t* be = NULL;
+static void* buttplugLib = NULL;
+vibrate_t bp_vibrate[BP_MAX_CHANNELS];
+#endif
+
 ping_t	cl_pinglist[MAX_PINGREQUESTS];
 
 typedef struct serverStatus_s
@@ -558,6 +564,84 @@ void CL_CaptureVoip(void)
 		S_MasterGain(1.0f);
 		clc.voipPower = 0.0f;  // force this value so it doesn't linger.
 	}
+}
+#endif
+
+#ifdef USE_BUTTPLUG
+void CL_AddVibration(int channel, float intensity, int duration, qboolean cycled)
+{
+	int time = Sys_Milliseconds();
+
+	vibrate_t chn = bp_vibrate[channel];
+	if (chn.intensity != 0.0f && !chn.cycled && time - chn.start < chn.duration) {
+		// prevent adding vibration before it ended
+		return;
+	}
+
+	bp_vibrate[channel].intensity = intensity;
+	bp_vibrate[channel].duration = duration;
+	bp_vibrate[channel].start = time;
+	bp_vibrate[channel].cycled = cycled;
+}
+
+void CL_StopVibrationCycle(int channel)
+{
+	bp_vibrate[channel].cycled = qfalse;
+}
+
+static void CL_RunButtplug(void)
+{
+	if (cl.snap.valid) {
+		playerState_t* ps = &cl.snap.ps;
+
+		float treshold = Cvar_VariableValue("bp_treshold");
+		if (treshold != 0.0f) {
+			float xyspeed = sqrtf(ps->velocity[0] * ps->velocity[0] +
+				ps->velocity[1] * ps->velocity[1]);
+
+			if (treshold > 800.0f) treshold = 800.0f;
+			if (treshold < 320.0f) treshold = 320.0f;
+
+			if (xyspeed > treshold) {
+				bp_vibrate[BP_CH_SPEED].intensity = (xyspeed - 320.0f) / (1000.0f - 320.0f);
+			} else {
+				bp_vibrate[BP_CH_SPEED].intensity = 0.0f;
+			}
+		}
+
+		if (Cvar_VariableIntegerValue("bp_damage")) {
+			// ps->damageEvent doesn't work, don't even try
+			static int health = 100;
+			int curHealth = ps->stats[STAT_HEALTH];
+			if (ps->pm_flags & PMF_TIME_LAND && curHealth != health) {
+				// apply damage vibro
+				CL_AddVibration(BP_CH_DMG, (float)ps->damageCount / 255.0f, 250, qfalse);
+			}
+			// i'll do this each frame to remove cases when
+			// dmg -> heal -> same dmg
+			health = curHealth;
+		}
+	}
+
+	qboolean hadVibro = qfalse;
+	int time = Sys_Milliseconds();
+
+	// vibrate by channels
+	for (int i = BP_MAX_CHANNELS - 1; i >= 0; i--) {
+		vibrate_t channel = bp_vibrate[i];
+		if (channel.intensity != 0.0f) {
+			if (!channel.cycled && time - channel.start >= channel.duration) {
+				bp_vibrate[i].intensity = 0.0f;
+				continue;
+			}
+			// printf("%d, %f\n", i, channel.intensity);
+			be->Vibrate(channel.intensity);
+			hadVibro = qtrue;
+			break;
+		}
+	}
+	if (!hadVibro)
+		be->StopVibrate();
 }
 #endif
 
@@ -3094,6 +3178,16 @@ void CL_Frame ( int msec ) {
 	// decide on the serverTime to render
 	CL_SetCGameTime();
 
+#ifdef USE_BUTTPLUG
+	// Better place for this is cgame I guess...
+	// However, this won't probably work with sv_pure servers,
+	// requires mods code modification and proxying vibrate function.
+	// So, it's located here. If anyone have better ideas, you're welcome.
+	if (be) {
+		CL_RunButtplug();
+	}
+#endif
+
 	// update the screen
 	SCR_UpdateScreen();
 
@@ -3163,6 +3257,17 @@ void CL_ShutdownRef( void ) {
 	if ( rendererLib ) {
 		Sys_UnloadLibrary( rendererLib );
 		rendererLib = NULL;
+	}
+#endif
+#ifdef USE_BUTTPLUG
+	if (be->Stop)
+		be->Stop();
+	be = NULL;
+	Com_Memset(bp_vibrate, 0, sizeof(bp_vibrate));
+
+	if (buttplugLib) {
+		Sys_UnloadLibrary(buttplugLib);
+		buttplugLib = NULL;
 	}
 #endif
 }
@@ -3254,6 +3359,49 @@ void CL_InitRef( void ) {
 #ifdef USE_RENDERER_DLOPEN
 	GetRefAPI_t		GetRefAPI;
 	char			dllName[MAX_OSPATH];
+#endif
+#ifdef USE_BUTTPLUG
+	bpimport_t bi;
+	GetBPAPI_t GetBPAPI;
+#endif
+
+#ifdef USE_BUTTPLUG
+	be = NULL;
+	Com_Memset(bp_vibrate, 0, sizeof(bp_vibrate));
+	bp_vibrate[BP_CH_SPEED].duration = 0;
+	bp_vibrate[BP_CH_SPEED].cycled = qtrue;
+
+	if(!(buttplugLib = Sys_LoadDll("ioq3_buttplug_" ARCH_STRING DLL_EXT, qfalse)))
+	{
+		Com_Printf("failed to load buttplug module:\n\"%s\"\n", Sys_LibraryError());
+		goto postButtplug;
+	}
+
+	GetBPAPI = Sys_LoadFunction(buttplugLib, "GetBPAPI");
+	if(!GetBPAPI)
+	{
+		Com_Error(ERR_FATAL, "Can't load symbol GetBPAPI: '%s'",  Sys_LibraryError());
+	}
+
+	bi.Printf = Com_Printf;
+
+	bi.Cvar_Get = Cvar_Get;
+	bi.Cvar_Set = Cvar_Set;
+	bi.Cvar_SetValue = Cvar_SetValue;
+	bi.Cvar_CheckRange = Cvar_CheckRange;
+	bi.Cvar_SetDescription = Cvar_SetDescription;
+
+	bi.Cmd_AddCommand = Cmd_AddCommand;
+	bi.Cmd_RemoveCommand = Cmd_RemoveCommand;
+
+	bi.Cmd_Argc = Cmd_Argc;
+	bi.Cmd_Argv = Cmd_Argv;
+
+	be = GetBPAPI(&bi);
+
+	be->Init();
+
+postButtplug:
 #endif
 
 	Com_Printf( "----- Initializing Renderer ----\n" );

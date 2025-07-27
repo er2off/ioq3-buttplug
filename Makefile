@@ -179,6 +179,10 @@ ifndef USE_OPENAL_DLOPEN
 USE_OPENAL_DLOPEN=1
 endif
 
+ifndef USE_BUTTPLUG
+USE_BUTTPLUG=0
+endif
+
 ifndef USE_HTTP
 USE_HTTP=1
 endif
@@ -256,6 +260,7 @@ SDIR=$(MOUNT_DIR)/server
 RCOMMONDIR=$(MOUNT_DIR)/renderercommon
 RGL1DIR=$(MOUNT_DIR)/renderergl1
 RGL2DIR=$(MOUNT_DIR)/renderergl2
+BPDIR=$(MOUNT_DIR)/buttplug
 CMDIR=$(MOUNT_DIR)/qcommon
 SDLDIR=$(MOUNT_DIR)/sdl
 ASMDIR=$(MOUNT_DIR)/asm
@@ -1085,6 +1090,9 @@ ifneq ($(BUILD_CLIENT),0)
       TARGETS += $(B)/$(CLIENTBIN)_opengl2$(FULLBINEXT)
     endif
   endif
+  ifneq ($(USE_BUTTPLUG),0)
+    TARGETS += $(B)/ioq3_buttplug_$(SHLIBNAME)
+  endif
 endif
 
 ifneq ($(BUILD_GAME_SO),0)
@@ -1172,6 +1180,10 @@ endif
 
 ifeq ($(USE_HTTP),1)
   CLIENT_CFLAGS += -DUSE_HTTP
+endif
+
+ifneq ($(USE_BUTTPLUG),0)
+  CLIENT_CFLAGS += -DUSE_BUTTPLUG
 endif
 
 ifeq ($(USE_VOIP),1)
@@ -1334,6 +1346,12 @@ endef
 define DO_REF_CC
 $(echo_cmd) "REF_CC $<"
 $(Q)$(CC) $(SHLIBCFLAGS) $(CFLAGS) $(CLIENT_CFLAGS) $(OPTIMIZE) $(WARNINGS_CFLAGS) -o $@ -c $<
+endef
+
+# only for buttplug mod
+define DO_REF_CXX
+$(echo_cmd) "REF_CXX $<"
+$(Q)$(CXX) $(SHLIBCFLAGS) $(CFLAGS) $(CLIENT_CFLAGS) $(OPTIMIZE) $(WARNINGS_CFLAGS) -o $@ -c $<
 endef
 
 define DO_THIRDPARTY_REF_CC
@@ -1564,6 +1582,9 @@ makedirs:
 	@$(MKDIR) $(B)/renderergl1
 	@$(MKDIR) $(B)/renderergl2
 	@$(MKDIR) $(B)/renderergl2/glsl
+	@$(MKDIR) $(B)/buttplug
+	@$(MKDIR) $(B)/buttplug/buttplugCpp
+	@$(MKDIR) $(B)/buttplug/ixwebsocket
 	@$(MKDIR) $(B)/ded
 	@$(MKDIR) $(B)/$(BASEGAME)/cgame
 	@$(MKDIR) $(B)/$(BASEGAME)/game
@@ -1924,6 +1945,54 @@ else
     $(B)/client/con_tty.o
 endif
 endif
+
+Q3BPOBJ = \
+  $(B)/buttplug/ixwebsocket/IXBench.o \
+  $(B)/buttplug/ixwebsocket/IXCancellationRequest.o \
+  $(B)/buttplug/ixwebsocket/IXConnectionState.o \
+  $(B)/buttplug/ixwebsocket/IXDNSLookup.o \
+  $(B)/buttplug/ixwebsocket/IXExponentialBackoff.o \
+  $(B)/buttplug/ixwebsocket/IXGetFreePort.o \
+  $(B)/buttplug/ixwebsocket/IXGzipCodec.o \
+  $(B)/buttplug/ixwebsocket/IXHttp.o \
+  $(B)/buttplug/ixwebsocket/IXHttpClient.o \
+  $(B)/buttplug/ixwebsocket/IXHttpServer.o \
+  $(B)/buttplug/ixwebsocket/IXNetSystem.o \
+  $(B)/buttplug/ixwebsocket/IXSelectInterrupt.o \
+  $(B)/buttplug/ixwebsocket/IXSelectInterruptEvent.o \
+  $(B)/buttplug/ixwebsocket/IXSelectInterruptFactory.o \
+  $(B)/buttplug/ixwebsocket/IXSelectInterruptPipe.o \
+  $(B)/buttplug/ixwebsocket/IXSetThreadName.o \
+  $(B)/buttplug/ixwebsocket/IXSocket.o \
+  $(B)/buttplug/ixwebsocket/IXSocketAppleSSL.o \
+  $(B)/buttplug/ixwebsocket/IXSocketConnect.o \
+  $(B)/buttplug/ixwebsocket/IXSocketFactory.o \
+  $(B)/buttplug/ixwebsocket/IXSocketMbedTLS.o \
+  $(B)/buttplug/ixwebsocket/IXSocketOpenSSL.o \
+  $(B)/buttplug/ixwebsocket/IXSocketServer.o \
+  $(B)/buttplug/ixwebsocket/IXSocketTLSOptions.o \
+  $(B)/buttplug/ixwebsocket/IXStrCaseCompare.o \
+  $(B)/buttplug/ixwebsocket/IXUdpSocket.o \
+  $(B)/buttplug/ixwebsocket/IXUrlParser.o \
+  $(B)/buttplug/ixwebsocket/IXUserAgent.o \
+  $(B)/buttplug/ixwebsocket/IXUuid.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocket.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketCloseConstants.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketHandshake.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketHttpHeaders.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketPerMessageDeflate.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketPerMessageDeflateCodec.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketPerMessageDeflateOptions.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketProxyServer.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketServer.o \
+  $(B)/buttplug/ixwebsocket/IXWebSocketTransport.o \
+  \
+  $(B)/buttplug/buttplugCpp/buttplugclient.o \
+  $(B)/buttplug/buttplugCpp/log.o \
+  $(B)/buttplug/buttplugCpp/messageHandler.o \
+  $(B)/buttplug/buttplugCpp/messages.o \
+  \
+  $(B)/buttplug/main.o
 
 Q3R2OBJ = \
   $(B)/renderergl2/tr_animation.o \
@@ -2367,6 +2436,13 @@ $(B)/$(CLIENTBIN)_opengl2$(FULLBINEXT): $(Q3OBJ) $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(J
 	$(Q)$(CC) $(CLIENT_CFLAGS) $(CFLAGS) $(CLIENT_LDFLAGS) $(LDFLAGS) $(NOTSHLIBLDFLAGS) \
 		-o $@ $(Q3OBJ) $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ) \
 		$(LIBSDLMAIN) $(CLIENT_LIBS) $(RENDERER_LIBS) $(LIBS)
+endif
+
+ifneq ($(USE_BUTTPLUG),0)
+$(B)/ioq3_buttplug_$(SHLIBNAME): $(Q3BPOBJ)
+	$(echo_cmd) "LD $@"
+	$(Q)$(CXX) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3BPOBJ) \
+		$(THREAD_LIBS) $(LIBSDLMAIN)
 endif
 
 ifneq ($(strip $(LIBSDLMAIN)),)
@@ -2872,6 +2948,10 @@ $(B)/client/win_resource.o: $(SYSDIR)/win_resource.rc $(SYSDIR)/win_manifest.xml
 	$(DO_WINDRES)
 
 
+$(B)/buttplug/%.o: $(BPDIR)/%.cpp
+	$(DO_REF_CXX) -I$(BPDIR)
+
+
 $(B)/renderergl1/%.o: $(CMDIR)/%.c
 	$(DO_REF_CC)
 
@@ -3079,6 +3159,9 @@ ifneq ($(BUILD_CLIENT),0)
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
 	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/$(CLIENTBIN)_opengl2$(FULLBINEXT) $(COPYBINDIR)/$(CLIENTBIN)_opengl2$(FULLBINEXT)
     endif
+  endif
+  ifneq ($(USE_BUTTPLUG),0)
+	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/ioq3_buttpglug_$(SHLIBNAME) $(COPYBINDIR)/ioq3_buttplug_$(SHLIBNAME)
   endif
 endif
 
