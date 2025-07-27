@@ -12,6 +12,7 @@ cvar_t* bp_port;
 cvar_t* bp_treshold;
 cvar_t* bp_damage;
 cvar_t* bp_fight_strength;
+cvar_t* bp_maxspeed;
 
 Client* client;
 bool hasDevice;
@@ -73,9 +74,11 @@ void BP_Restart()
 
 	ButtplugStop();
 	ButtplugStart();
+	// auto-connect, yes
+	BP_Scan();
 }
 
-void ButtplugScan(bool wait)
+void BP_Scan()
 {
 	if (!CheckClient())
 		return;
@@ -85,13 +88,12 @@ void ButtplugScan(bool wait)
 		hasDevice = false;
 	}
 
+	bi.Printf(BP_PREFIX "Scanning devices...\n");
 	client->requestDeviceList();
 	client->startScan();
 
-	if (bi.Cmd_Argc() == 2 && !strcmp(bi.Cmd_Argv(1), "wait")) {
-		// sleep to await scan
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-	}
+	// sleep to await scan
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 
 	client->stopScan();
 
@@ -99,7 +101,7 @@ void ButtplugScan(bool wait)
 
 	switch (devices.size()) {
 	case 0:
-		bi.Printf(BP_PREFIX "No devices found! Run \\bp_scan [wait]\n");
+		bi.Printf(BP_PREFIX "No devices found! Run \\bp_scan\n");
 		break;
 	case 1:
 		bi.Printf(BP_PREFIX "Single device found, auto-selecting it\n");
@@ -113,12 +115,6 @@ void ButtplugScan(bool wait)
 		}
 		bi.Printf(BP_PREFIX "Select your device by using \\bp_scanSelect <id>\n");
 	}
-}
-
-void BP_Scan()
-{
-	bool wait = bi.Cmd_Argc() == 2 && !strcmp(bi.Cmd_Argv(1), "wait");
-	ButtplugScan(wait);
 }
 
 void BP_ScanSelect()
@@ -177,14 +173,17 @@ void BP_Init()
 	bp_damage = bi.Cvar_Get("bp_damage", "1", CVAR_ARCHIVE);
 	// Strength of attack
 	bp_fight_strength = bi.Cvar_Get("bp_fight_strength", "0.25", CVAR_ARCHIVE);
+	// Speed when vibration will be maximal
+	bp_maxspeed = bi.Cvar_Get("bp_maxspeed", "1000", CVAR_ARCHIVE);
 
 	bi.Cmd_AddCommand("bp_restart", BP_Restart);
 	bi.Cmd_AddCommand("bp_scan", BP_Scan);
 	bi.Cmd_AddCommand("bp_scanSelect", BP_ScanSelect);
 	bi.Cmd_AddCommand("bp_status", BP_Status);
 
+	bi.Printf(BP_PREFIX "Starting...\n");
 	ButtplugStart();
-	ButtplugScan(false);
+	BP_Scan();
 }
 
 void BP_Stop()

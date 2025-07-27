@@ -3,18 +3,19 @@
 This repo adds [buttplug](https://buttplug.io/) support into ioquake3.
 
 Despite of the disclaimer on the official site that you need
-to have physical device, I don't have any. Tests were made by noku, not by me.
+to have physical device, I don't have any. Tests were made by [noku](https://github.com/noku0297), not by me.
 
 Plugin does vibration on speedups (bhop, etc.), damage and attacks.
 Everything is configurable by using cvars:
 
-| Cvar                | Description                                    |
-|:--------------------|:-----------------------------------------------|
-| bp\_address         | WebSocket address of Intiface, could be wss:// |
-| bp\_port            | WebSocket Intiface port                        |
-| bp\_treshold        | Speed treshold when vibration starts           |
-| bp\_damage          | Enable vibration on any kind of damage         |
-| bp\_fight\_strength | Strength of weapon attack                      |
+| Cvar                | Description                                               |
+|:--------------------|:----------------------------------------------------------|
+| bp\_address         | WebSocket address of Intiface, could be `wss://`          |
+| bp\_port            | WebSocket Intiface port                                   |
+| bp\_treshold        | Speed treshold when vibration starts                      |
+| bp\_damage          | Enable vibration on any kind of damage                    |
+| bp\_fight\_strength | Strength of weapon attack                                 |
+| bp\_maxspeed        | Speed when vibration will be maximal, changes dynamically |
 
 You can see all of them in a console, every cvar is saved.
 
@@ -38,10 +39,11 @@ and `bp_*` stuff should be in your console.
 
 Device can be detected automatically. If you're unsure, run `bp_status`.
 
-If it wasn't detected, you can run `bp_scan [wait]`
-(add wait if scanning needs some time like your device is connected using Bluetooth)
+If it wasn't detected, you can run `bp_scan`.
 
 If you still can't get device, run Intiface, or if it's already started, reconnect device.
+
+If you modified address/port, run `bp_restart`.
 
 You're ready! You can modify cvars and source code if you need non-standard behavior.
 

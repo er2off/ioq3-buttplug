@@ -141,6 +141,11 @@ static void	*rendererLib = NULL;
 bpexport_t* be = NULL;
 static void* buttplugLib = NULL;
 vibrate_t bp_vibrate[BP_MAX_CHANNELS];
+
+// in-game behavior
+cvar_t* bp_treshold;
+cvar_t* bp_damage;
+cvar_t* bp_maxspeed;
 #endif
 
 ping_t	cl_pinglist[MAX_PINGREQUESTS];
@@ -594,31 +599,36 @@ static void CL_RunButtplug(void)
 	if (cl.snap.valid) {
 		playerState_t* ps = &cl.snap.ps;
 
-		float treshold = Cvar_VariableValue("bp_treshold");
+		float treshold = bp_treshold->value;
 		if (treshold != 0.0f) {
 			float xyspeed = sqrtf(ps->velocity[0] * ps->velocity[0] +
 				ps->velocity[1] * ps->velocity[1]);
 
-			if (treshold > 800.0f) treshold = 800.0f;
+			if (treshold > bp_maxspeed->value) treshold = bp_maxspeed->value;
 			if (treshold < 320.0f) treshold = 320.0f;
 
 			if (xyspeed > treshold) {
-				bp_vibrate[BP_CH_SPEED].intensity = (xyspeed - 320.0f) / (1000.0f - 320.0f);
+				float intensity = (xyspeed - 320.0f) / (bp_maxspeed->value - 320.0f);
+				if (intensity < 0.0f) intensity = 0.0f;
+				if (intensity > 1.0f) {
+					intensity = 1.0f;
+					// increase bp_maxspeed
+					Cvar_Set("bp_maxspeed", va("%.0f", roundf(xyspeed)));
+				}
+				bp_vibrate[BP_CH_SPEED].intensity = intensity;
 			} else {
 				bp_vibrate[BP_CH_SPEED].intensity = 0.0f;
 			}
 		}
 
-		if (Cvar_VariableIntegerValue("bp_damage")) {
+		if (bp_damage->integer) {
 			// ps->damageEvent doesn't work, don't even try
 			static int health = 100;
 			int curHealth = ps->stats[STAT_HEALTH];
-			if (ps->pm_flags & PMF_TIME_LAND && curHealth != health) {
+			if (curHealth < health) {
 				// apply damage vibro
 				CL_AddVibration(BP_CH_DMG, (float)ps->damageCount / 255.0f, 250, qfalse);
 			}
-			// i'll do this each frame to remove cases when
-			// dmg -> heal -> same dmg
 			health = curHealth;
 		}
 	}
@@ -3400,6 +3410,13 @@ void CL_InitRef( void ) {
 	be = GetBPAPI(&bi);
 
 	be->Init();
+
+	// Speed treshold when vibration starts
+	bp_treshold = Cvar_Get("bp_treshold", "400", CVAR_ARCHIVE);
+	// Enable vibration on any kind of damage
+	bp_damage = Cvar_Get("bp_damage", "1", CVAR_ARCHIVE);
+	// Speed when vibration will be maximal
+	bp_maxspeed = Cvar_Get("bp_maxspeed", "1000", CVAR_ARCHIVE);
 
 postButtplug:
 #endif
