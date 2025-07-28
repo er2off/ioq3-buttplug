@@ -594,45 +594,67 @@ void CL_StopVibrationCycle(int channel)
 	bp_vibrate[channel].cycled = qfalse;
 }
 
-static void CL_RunButtplug(void)
+static void CL_CalcButtplugVibro(void)
 {
-	if (cl.snap.valid) {
-		playerState_t* ps = &cl.snap.ps;
+	if (!cl.snap.valid)
+		return;
 
-		float treshold = bp_treshold->value;
-		if (treshold != 0.0f) {
-			float xyspeed = sqrtf(ps->velocity[0] * ps->velocity[0] +
-				ps->velocity[1] * ps->velocity[1]);
+	playerState_t* ps = &cl.snap.ps;
 
-			if (treshold > bp_maxspeed->value) treshold = bp_maxspeed->value;
-			if (treshold < 320.0f) treshold = 320.0f;
+	if (ps->pm_type == PM_DEAD) {
+		CL_AddVibration(BP_CH_DMG, 1.0f, 20, qfalse);
+		// return because there's nothing to add,
+		// speed may be >1000ups, damage is already played
+		return;
+	}
 
-			if (xyspeed > treshold) {
-				float intensity = (xyspeed - 320.0f) / (bp_maxspeed->value - 320.0f);
-				if (intensity < 0.0f) intensity = 0.0f;
-				if (intensity > 1.0f) {
-					intensity = 1.0f;
-					// increase bp_maxspeed
-					Cvar_Set("bp_maxspeed", va("%.0f", roundf(xyspeed)));
-				}
-				bp_vibrate[BP_CH_SPEED].intensity = intensity;
-			} else {
-				bp_vibrate[BP_CH_SPEED].intensity = 0.0f;
+	float xyspeed = sqrtf(ps->velocity[0] * ps->velocity[0] +
+		ps->velocity[1] * ps->velocity[1]);
+
+	if (xyspeed > bp_maxspeed->value) {
+		// increase bp_maxspeed (+10 just to not reach 1.0 vibro)
+		Cvar_Set("bp_maxspeed", va("%.0f", roundf(xyspeed) + 10));
+	}
+
+	float treshold = bp_treshold->value;
+	if (treshold != 0.0f) {
+		if (treshold > bp_maxspeed->value) treshold = bp_maxspeed->value;
+		if (treshold < 320.0f) treshold = 320.0f;
+		if (treshold != bp_treshold->value)
+			Cvar_Set("bp_treshold", va("%f", treshold));
+
+		if (xyspeed > treshold) {
+			float intensity = (xyspeed - 320.0f) / (bp_maxspeed->value - 320.0f);
+			if (intensity < 0.0f) {
+				intensity = 0.0f;
+				// increase bp_maxspeed to 320 (in case if someone put 0 here to test own max speed)
+				Cvar_Set("bp_maxspeed", "320");
 			}
-		}
-
-		if (bp_damage->integer) {
-			// ps->damageEvent doesn't work, don't even try
-			static int health = 100;
-			int curHealth = ps->stats[STAT_HEALTH];
-			if (curHealth < health) {
-				// apply damage vibro
-				CL_AddVibration(BP_CH_DMG, (float)ps->damageCount / 255.0f, 250, qfalse);
-			}
-			health = curHealth;
+			if (intensity > 1.0f) intensity = 1.0f;
+			bp_vibrate[BP_CH_SPEED].intensity = intensity;
+		} else {
+			bp_vibrate[BP_CH_SPEED].intensity = 0.0f;
 		}
 	}
 
+	if (bp_damage->integer) {
+		// ps->damageEvent doesn't work, don't even try
+		static int health = 100;
+		int curHealth = ps->stats[STAT_HEALTH];
+		// I'd want to have better ideas of how to implement that
+		// Idea in this: curHealth > 100 == powerup, curHealth < health == damage
+		// However, this won't apply any damage vibro if we have health powerup...
+		// but do we need this while we have powerup..?
+		if (curHealth < 100 && curHealth < health) {
+			// apply damage vibro
+			CL_AddVibration(BP_CH_DMG, (float)ps->damageCount / 255.0f, 250, qfalse);
+		}
+		health = curHealth;
+	}
+}
+
+static void CL_ApplyButtplugVibro(void)
+{
 	qboolean hadVibro = qfalse;
 	int time = Sys_Milliseconds();
 
@@ -3194,7 +3216,8 @@ void CL_Frame ( int msec ) {
 	// requires mods code modification and proxying vibrate function.
 	// So, it's located here. If anyone have better ideas, you're welcome.
 	if (be) {
-		CL_RunButtplug();
+		CL_CalcButtplugVibro();
+		CL_ApplyButtplugVibro();
 	}
 #endif
 

@@ -3,6 +3,9 @@
 
 #define BP_PREFIX "[Buttplug] "
 
+// this thing disables real communication with Intiface
+const bool debug = false;
+
 bpimport_t bi;
 
 // connection
@@ -57,7 +60,7 @@ void ButtplugStart()
 
 void ButtplugStop()
 {
-	if (!CheckClient())
+	if (!client)
 		return;
 
 	if (hasDevice) {
@@ -65,17 +68,6 @@ void ButtplugStop()
 		// client->disconnect();
 	}
 	delete client;
-}
-
-void BP_Restart()
-{
-	if (!client)
-		return;
-
-	ButtplugStop();
-	ButtplugStart();
-	// auto-connect, yes
-	BP_Scan();
 }
 
 void BP_Scan()
@@ -153,8 +145,19 @@ void BP_Status()
 {
 	bi.Printf(BP_PREFIX "Client is %srunning\n", client == nullptr ? "NOT " : "");
 	bi.Printf(BP_PREFIX "Device was %sselected\n", hasDevice ? "" : "NOT ");
-	if (hasDevice)
-		bi.Printf(BP_PREFIX "Selected device name is %s\n", selectedDevice.displayName.c_str());
+}
+
+void BP_Restart()
+{
+	if (debug) {
+		bi.Printf(BP_PREFIX "DEBUG MODE ENABLED, restart is impossible\n");
+		return;
+	}
+
+	ButtplugStop();
+	ButtplugStart();
+	// auto-connect, yes
+	BP_Scan();
 }
 
 void BP_Init()
@@ -182,8 +185,10 @@ void BP_Init()
 	bi.Cmd_AddCommand("bp_status", BP_Status);
 
 	bi.Printf(BP_PREFIX "Starting...\n");
-	ButtplugStart();
-	BP_Scan();
+	if (!debug) {
+		ButtplugStart();
+		BP_Scan();
+	}
 }
 
 void BP_Stop()
@@ -198,7 +203,14 @@ void BP_Stop()
 
 qboolean BP_Vibrate(float intensity)
 {
-	if (!CheckClient())
+	if (cachedIntensity == intensity)
+		return qtrue;
+	cachedIntensity = intensity;
+
+	if (debug)
+		bi.Printf(BP_PREFIX "vibrate %f\n", intensity);
+
+	if (!client)
 		return qfalse;
 
 	if (!hasDevice)
@@ -207,25 +219,24 @@ qboolean BP_Vibrate(float intensity)
 		return qfalse;
 	}
 
-	if (cachedIntensity == intensity)
-		return qtrue;
-	cachedIntensity = intensity;
-
 	client->sendScalar(selectedDevice, intensity);
 	return qtrue;
 }
 
 void BP_StopVibrate()
 {
-	if (!CheckClient())
+	if (cachedIntensity == 0.0f)
+		return;
+	cachedIntensity = 0.0f;
+
+	if (debug)
+		bi.Printf(BP_PREFIX "stop vibro\n");
+
+	if (!client)
 		return;
 
 	if (!hasDevice)
 		return;
-
-	if (cachedIntensity == 0.0f)
-		return;
-	cachedIntensity = 0.0f;
 
 	client->stopDevice(selectedDevice);
 }
