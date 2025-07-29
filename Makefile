@@ -2439,10 +2439,15 @@ $(B)/$(CLIENTBIN)_opengl2$(FULLBINEXT): $(Q3OBJ) $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(J
 endif
 
 ifneq ($(USE_BUTTPLUG),0)
+
+ifdef MINGW
+BP_LIBS+=-lws2_32
+endif
+
 $(B)/ioq3_buttplug_$(SHLIBNAME): $(Q3BPOBJ)
 	$(echo_cmd) "LD $@"
 	$(Q)$(CXX) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3BPOBJ) \
-		$(THREAD_LIBS) $(LIBSDLMAIN)
+		$(THREAD_LIBS) $(LIBSDLMAIN) $(BP_LIBS)
 endif
 
 ifneq ($(strip $(LIBSDLMAIN)),)
@@ -2949,7 +2954,7 @@ $(B)/client/win_resource.o: $(SYSDIR)/win_resource.rc $(SYSDIR)/win_manifest.xml
 
 
 $(B)/buttplug/%.o: $(BPDIR)/%.cpp
-	$(DO_REF_CXX) -I$(BPDIR)
+	$(DO_REF_CXX) -I$(BPDIR) $(BP_CFLAGS)
 
 
 $(B)/renderergl1/%.o: $(CMDIR)/%.c

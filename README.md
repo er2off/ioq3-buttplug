@@ -10,7 +10,7 @@ Everything is configurable by using cvars:
 
 | Cvar                | Description                                               |
 |:--------------------|:----------------------------------------------------------|
-| bp\_address         | WebSocket address of Intiface, could be `wss://`          |
+| bp\_address         | WebSocket address of Intiface, could be `wss://` (if built)|
 | bp\_port            | WebSocket Intiface port                                   |
 | bp\_treshold        | Speed treshold when vibration starts                      |
 | bp\_damage          | Enable vibration on any kind of damage                    |
@@ -30,6 +30,14 @@ to build everything else, consult ioquake3 page.
 So, I guess you're smart enough, just type
 ```sh
 make USE_BUTTPLUG=1
+# for w*ndows (cross-compile from *nix, requires nix and llvm19)
+# adjust to your needed configuration
+make USE_BUTTPLUG=1 PLATFORM=mingw64 \
+    BP_CFLAGS='-I/path/to/include/where/nlohmann-json/located' \
+    CC='zig cc --target=x86_64-windows -Wno-date-time' \
+    CXX='zig c++ --target=x86_64-windows' \
+    WINDRES='llvm-windres19 -I /usr/local/lib/zig/libc/include/any-windows-any' \
+    TOOLS_CC=cc
 ```
 
 ## Usage

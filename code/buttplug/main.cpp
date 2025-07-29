@@ -1,6 +1,13 @@
 ﻿#include "bp_public.h"
 #include "buttplugCpp/include/buttplugclient.h"
 
+#ifdef _WIN32
+// I don't know why original macro works with renderers
+// with mingw but not with this module. Probably C++ moment?
+#undef Q_EXPORT
+#define Q_EXPORT __declspec(dllexport)
+#endif
+
 #define BP_PREFIX "[Buttplug] "
 
 // this thing disables real communication with Intiface
@@ -21,6 +28,13 @@ Client* client;
 bool hasDevice;
 DeviceClass selectedDevice;
 float cachedIntensity;
+
+const char* GetDeviceName(const DeviceClass& dev)
+{
+	if (!dev.displayName.empty())
+		return dev.displayName.c_str();
+	return dev.deviceName.c_str();
+}
 
 bool CheckClient()
 {
@@ -103,7 +117,7 @@ void BP_Scan()
 	default:
 		bi.Printf(BP_PREFIX "Multiple devices found, there is a list of them:\n");
 		for (const auto& device : devices) {
-			bi.Printf("%d : %s\n", device.deviceID, device.displayName.c_str());
+			bi.Printf("%d : %s\n", device.deviceID, GetDeviceName(device));
 		}
 		bi.Printf(BP_PREFIX "Select your device by using \\bp_scanSelect <id>\n");
 	}
@@ -133,7 +147,7 @@ void BP_ScanSelect()
 	// or enumerate all and use deviceID we initially printed?
 	for (const auto& device : devices) {
 		if (device.deviceID == idx) {
-			bi.Printf(BP_PREFIX "%s selected!\n", device.displayName.c_str());
+			bi.Printf(BP_PREFIX "%s selected!\n", GetDeviceName(device));
 			selectedDevice = device;
 			hasDevice = true;
 			break;
@@ -145,6 +159,8 @@ void BP_Status()
 {
 	bi.Printf(BP_PREFIX "Client is %srunning\n", client == nullptr ? "NOT " : "");
 	bi.Printf(BP_PREFIX "Device was %sselected\n", hasDevice ? "" : "NOT ");
+	if (hasDevice)
+		bi.Printf(BP_PREFIX "Selected device name is %s\n", GetDeviceName(selectedDevice));
 }
 
 void BP_Restart()
