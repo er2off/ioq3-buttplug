@@ -211,8 +211,16 @@ ifndef USE_INTERNAL_LIBS
 USE_INTERNAL_LIBS=1
 endif
 
+ifndef USE_INTERNAL_CURL_HEADERS
+USE_INTERNAL_CURL_HEADERS=$(USE_INTERNAL_LIBS)
+endif
+
 ifndef USE_INTERNAL_OGG
 USE_INTERNAL_OGG=$(USE_INTERNAL_LIBS)
+endif
+
+ifndef USE_INTERNAL_OPENAL_HEADERS
+USE_INTERNAL_OPENAL_HEADERS=$(USE_INTERNAL_LIBS)
 endif
 
 ifndef USE_INTERNAL_VORBIS
@@ -223,16 +231,16 @@ ifndef USE_INTERNAL_OPUS
 USE_INTERNAL_OPUS=$(USE_INTERNAL_LIBS)
 endif
 
+ifndef USE_INTERNAL_SDL
+USE_INTERNAL_SDL=$(USE_INTERNAL_LIBS)
+endif
+
 ifndef USE_INTERNAL_ZLIB
 USE_INTERNAL_ZLIB=$(USE_INTERNAL_LIBS)
 endif
 
 ifndef USE_INTERNAL_JPEG
 USE_INTERNAL_JPEG=$(USE_INTERNAL_LIBS)
-endif
-
-ifndef USE_LOCAL_HEADERS
-USE_LOCAL_HEADERS=$(USE_INTERNAL_LIBS)
 endif
 
 ifndef USE_RENDERER_DLOPEN
@@ -327,8 +335,11 @@ else
   OPENAL_LIBS ?= -lopenal
 endif
 
-ifeq ($(USE_LOCAL_HEADERS),1)
+ifeq ($(USE_INTERNAL_CURL_HEADERS),1)
   CURL_CFLAGS+=-I$(CURLDIR)/include
+endif
+
+ifeq ($(USE_INTERNAL_OPENAL_HEADERS),1)
   OPENAL_CFLAGS+=-I${OPENALDIR}/include
 endif
 
@@ -527,7 +538,7 @@ ifeq ($(PLATFORM),darwin)
   BASE_CFLAGS += -fno-strict-aliasing -fno-common -pipe
 
   ifeq ($(USE_OPENAL),1)
-    ifneq ($(USE_LOCAL_HEADERS),1)
+    ifneq ($(USE_INTERNAL_OPENAL_HEADERS),1)
       CLIENT_CFLAGS += -I/System/Library/Frameworks/OpenAL.framework/Headers
     endif
     ifneq ($(USE_OPENAL_DLOPEN),1)
@@ -545,7 +556,7 @@ ifeq ($(PLATFORM),darwin)
   CLIENT_LIBS += -framework IOKit
   RENDERER_LIBS += -framework OpenGL
 
-  ifeq ($(USE_LOCAL_HEADERS),1)
+  ifeq ($(USE_INTERNAL_SDL),1)
     BASE_CFLAGS += -I$(SDLHDIR)/include
 
     # We copy sdlmain before ranlib'ing it so that subversion doesn't think
@@ -673,7 +684,7 @@ ifdef MINGW
       $(call bin_path, $(TOOLS_MINGW_PREFIX)-gcc))))
   endif
 
-  LIBS= -lws2_32 -lwinmm -lpsapi
+  LIBS= -lws2_32 -lwinmm -lpsapi -lshell32
   AUTOUPDATER_LIBS += -lwininet
 
   # clang 3.4 doesn't support this
@@ -702,7 +713,7 @@ ifdef MINGW
   CLIENT_LIBS += -lmingw32
   RENDERER_LIBS += -lmingw32
 
-  ifeq ($(USE_LOCAL_HEADERS),1)
+  ifeq ($(USE_INTERNAL_SDL),1)
     CLIENT_CFLAGS += -I$(SDLHDIR)/include
     ifeq ($(ARCH),x86)
     CLIENT_LIBS += $(LIBSDIR)/win32/libSDL2main.a \
@@ -1289,8 +1300,20 @@ ifdef DEFAULT_BASEDIR
   BASE_CFLAGS += -DDEFAULT_BASEDIR=\\\"$(DEFAULT_BASEDIR)\\\"
 endif
 
-ifeq ($(USE_LOCAL_HEADERS),1)
-  BASE_CFLAGS += -DUSE_LOCAL_HEADERS
+ifeq ($(USE_INTERNAL_OPENAL_HEADERS),1)
+  BASE_CFLAGS += -DUSE_INTERNAL_OPENAL_HEADERS
+endif
+
+ifeq ($(USE_INTERNAL_CURL_HEADERS),1)
+  BASE_CFLAGS += -DUSE_INTERNAL_CURL_HEADERS
+endif
+
+ifeq ($(USE_INTERNAL_SDL),1)
+  BASE_CFLAGS += -DUSE_INTERNAL_SDL_HEADERS
+endif
+
+ifeq ($(USE_INTERNAL_ZLIB),1)
+  BASE_CFLAGS += -DUSE_INTERNAL_ZLIB
 endif
 
 ifeq ($(BUILD_STANDALONE),1)
@@ -1444,7 +1467,7 @@ endef
 
 define DO_WINDRES
 $(echo_cmd) "WINDRES $<"
-$(Q)$(WINDRES) -i $< -o $@
+$(Q)$(WINDRES) -Imisc -i $< -o $@
 endef
 
 
